@@ -1,0 +1,7 @@
+In order to get the raw data, download it from google drive: 
+https://drive.google.com/drive/folders/1xKEi5i5tj7niWn6Sw2eb8i04gnabJO19?usp=sharing
+
+
+Place the subject folders directly into the Raw_Data folder.
+
+Run the main_construct_dataset.py file to organize the dataset into .npy files.
