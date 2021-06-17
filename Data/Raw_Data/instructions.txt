@@ -1,5 +1,5 @@
 In order to get the raw data, download it from google drive: 
-https://drive.google.com/drive/folders/1xKEi5i5tj7niWn6Sw2eb8i04gnabJO19?usp=sharing
+https://drive.google.com/drive/folders/19pa6MRCUMqrn-9OB0IZFkCays_r-DQnS
 
 
 Place the subject folders directly into the Raw_Data folder.
