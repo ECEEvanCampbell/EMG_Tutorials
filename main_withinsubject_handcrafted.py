@@ -37,5 +37,19 @@ if __name__ == "__main__":
         for r in range(num_reps):
             train_reps = list(range(1, num_reps+1))
             test_reps = [train_reps.pop(r)]
-            training_data = EMGData(s, chosen_rep_labels=train_reps)
-            testing_data  = EMGData(s, chosen_rep_labels=test_reps)
+            training_dataset = EMGData(s, chosen_rep_labels=train_reps)
+            testing_dataset  = EMGData(s, chosen_rep_labels=test_reps)
+
+            # For handcrafted features we do not use iterative training (epochs w/ backpropagation).
+            # Because of this we do not need dataloaders and can simply extract the features from the dataset directly
+
+            training_labels = training_dataset.class_label
+            testing_labels  = testing_dataset.class_label
+
+            training_data = training_data.data
+            testing_data  = training_data.data
+
+            for f in range(num_featuresets):
+                # TODO: extract feature sets
+
+
