@@ -26,6 +26,7 @@ class EMGData(Dataset):
 
         # extract classes
         self.class_label = torch.tensor([i[1] for i in subject_data], dtype=torch.float)
+        self.rep_label   = torch.tensor(i[2] for i in subject_data], dtype=torch.int)
         self.num_labels = torch.unique(self.class_label).shape[0]
 
         self.position_label = torch.tensor([i[5] for i in subject_data])
