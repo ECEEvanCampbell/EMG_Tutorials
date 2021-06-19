@@ -28,12 +28,9 @@ class EMGData(Dataset):
         self.class_label = torch.tensor([i[1] for i in subject_data], dtype=torch.float)
         self.num_labels = torch.unique(self.class_label).shape[0]
 
-        self.intensity_label = torch.tensor([i[5] for i in subject_data])
-        self.num_intensities = torch.unique(self.intensity_label).shape[0]
-        rep_data = torch.tensor([i[4] for i in subject_data], dtype=torch.float)
-        
-        # Is this needed?
-        self.data = rep_data
+        self.position_label = torch.tensor([i[5] for i in subject_data])
+        self.num_position = torch.unique(self.intensity_label).shape[0]
+        self.data = torch.tensor([i[4] for i in subject_data], dtype=torch.float)
 
         # set signal info vars
         self.sig_length = self.data.shape[-1]
@@ -48,6 +45,6 @@ class EMGData(Dataset):
 
         data = self.data[idx]
         labels = self.class_label[idx]
-        intensity = self.intensity_label[idx]
+        position = self.position_label[idx]
 
-        return data, labels, intensity
+        return data, labels, position
