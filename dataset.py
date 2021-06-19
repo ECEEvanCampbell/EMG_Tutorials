@@ -30,7 +30,7 @@ class EMGData(Dataset):
         self.num_labels = torch.unique(self.class_label).shape[0]
 
         self.position_label = torch.tensor([i[5] for i in subject_data])
-        self.num_position = torch.unique(self.intensity_label).shape[0]
+        self.num_position = torch.unique(self.position_label).shape[0]
         self.data = torch.tensor([i[4] for i in subject_data], dtype=torch.float)
 
         # set signal info vars
