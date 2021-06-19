@@ -1,2 +1,4 @@
 *.csv
 *.npy
+__pycache__
+.vscode
