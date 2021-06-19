@@ -22,6 +22,7 @@ def load_subject(subject_id, intensity_list,winsize,wininc,base_dir = "Data/Raw_
 
         # load the file
         data = np.genfromtxt(path,delimiter=',')
+        # TODO: Add filtering to these signals -- they are not zero mean.
         num_windows = math.floor((data.shape[0]-winsize)/wininc)
 
         st=0
