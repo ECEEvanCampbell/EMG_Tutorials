@@ -4,7 +4,7 @@ import math
 import torch
 from utils import fix_random_seed
 
-def load_subject(subject_id, intensity_list,winsize,wininc,base_dir = "Data/Raw_Data"):
+def load_subject(subject_id,winsize,wininc,base_dir = "Data/Raw_Data"):
 
     # Inside of dataset folder, get list of all files associated with the subject of subject_id
     subj_path = os.listdir(base_dir+'/S' + str(subject_id + 1))
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         if os.path.exists("Data/S{}.npy".format(str(s))):
             print("Subject {} is already prepared".format(str(s)))
         else:
-            load_subject(s, position_list,winsize,wininc,base_dir = "Data/Raw_Data")
+            load_subject(s,winsize,wininc,base_dir = "Data/Raw_Data")
             print("Subject {} was prepared".format(str(s)))
 
 
