@@ -3,10 +3,12 @@ import numpy as np
 import math
 import torch
 from utils import fix_random_seed
+from scipy import signal
 
-def load_subject(subject_id,winsize,wininc,base_dir = "Data/Raw_Data"):
+def load_subject(subject_id,winsize,wininc, dataset_characteristics, base_dir = "Data/Raw_Data"):
 
     # Inside of dataset folder, get list of all files associated with the subject of subject_id
+    (num_subjects, num_motions, motion_list, num_reps, num_positions, position_list, winsize, wininc, sampling_frequency) = dataset_characteristics
     subj_path = os.listdir(base_dir+'/S' + str(subject_id + 1))
     training_data = []
     # For this list:
@@ -17,18 +19,18 @@ def load_subject(subject_id,winsize,wininc,base_dir = "Data/Raw_Data"):
         rep_num   = int(f.split('_')[3][1])
         position = int(f.split('_')[2][1:])
 
-        # If the file meets the inclusion criteria 
-        
-
         # load the file
         data = np.genfromtxt(path,delimiter=',')
-        # TODO: Add filtering to these signals -- they are not zero mean.
-        num_windows = math.floor((data.shape[0]-winsize)/wininc)
+        b, a = signal.iirnotch( 60/ (sampling_frequency/2), 20)
+        notched_data = signal.lfilter(b,a, data,axis=0)
+        b, a = signal.butter(N=4, Wn=[20/(sampling_frequency/2), 450/(sampling_frequency/2)],btype="band")
+        filtered_data = signal.lfilter(b,a, notched_data,axis=0)
+        num_windows = math.floor((filtered_data.shape[0]-winsize)/wininc)
 
         st=0
         ed=st+winsize
         for w in range(num_windows):
-            training_data.append([subject_id,class_num-1, rep_num,w,data[st:ed,:].transpose(), position])
+            training_data.append([subject_id,class_num-1, rep_num,w,filtered_data[st:ed,:].transpose(), position])
             st = st+wininc
             ed = ed+wininc
 
@@ -60,7 +62,7 @@ if __name__ == "__main__":
         if os.path.exists("Data/S{}.npy".format(str(s))):
             print("Subject {} is already prepared".format(str(s)))
         else:
-            load_subject(s,winsize,wininc,base_dir = "Data/Raw_Data")
+            load_subject(s,winsize,wininc,dataset_characteristics, base_dir = "Data/Raw_Data")
             print("Subject {} was prepared".format(str(s)))
 
 
