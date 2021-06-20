@@ -2,7 +2,7 @@ import torch
 from dataset import EMGData
 from utils import fix_random_seed
 import numpy as np
-
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 
 
@@ -18,7 +18,7 @@ def extract_TD_feats(signals, num_channels):
 
     return features
 
-def extract_LSF4_feats(signals):
+def extract_LSF4_feats(signals, num_channels):
 
     features = np.zeros((signals.shape[0],num_channels*4),dtype =float)
     if torch.is_tensor(signals):
@@ -30,7 +30,7 @@ def extract_LSF4_feats(signals):
 
     return features
 
-def extract_LSF9_feats(signals):
+def extract_LSF9_feats(signals, num_channels):
 
     features = np.zeros((signals.shape[0],num_channels*9),dtype =float)
     if torch.is_tensor(signals):
@@ -226,7 +226,24 @@ if __name__ == "__main__":
                 test_rep = [train_reps.pop(r)]
 
                 # Get a list of the windows that belong to the test set and training set.
-                testing_ids = subject_rep == test_rep
+                testing_ids = subject_rep.numpy() == test_rep
                 training_ids = [not elem for elem in testing_ids]
 
+                # Partition the training and testing features / labels
+                train_features = features[training_ids,:]
+                test_features = features[testing_ids,:]
+                
+                train_class = subject_class[training_ids]
+                test_class  = subject_class[testing_ids]
+
+                mdl = LinearDiscriminantAnalysis()
+                mdl.fit(train_features, train_class)
+                predictions = mdl.predict(test_features)
+
+                within_subject_results[s,r,f] = np.sum(predictions == test_class.numpy())/test_features.shape[0] * 100
+
+    # TODO: Add results plots.
+
         
+
+    np.save("Results/withinsubject_handcrafted.npy", within_subject_results)
