@@ -54,7 +54,7 @@ class DeepLearningModel(nn.Module):
         x = x.permute(0,2,1)
        
         x = self.fc1(x)
-        x = F.log_softmax(x, dim=1)
+        x = F.log_softmax(x, dim=2)
 
         return x
 
