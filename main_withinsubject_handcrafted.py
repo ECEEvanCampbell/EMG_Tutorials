@@ -4,7 +4,7 @@ from utils import fix_random_seed
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.svm import SVC
-
+import time
 
 
 def extract_TD_feats(signals, num_channels):
@@ -18,6 +18,53 @@ def extract_TD_feats(signals, num_channels):
     features[:,3*num_channels:4*num_channels] = getWLfeat(signals)
 
     return features
+
+def extract_TDPSD_feats(signals, num_channels):
+    # There are 6 features per channel
+    features = np.zeros((signals.shape[0], num_channels*6), dtype=float)
+    if torch.is_tensor(signals):
+        signals = signals.numpy()
+    # TDPSD feature set adapted from: https://github.com/RamiKhushaba/getTDPSDfeat
+    # Extract the features from original signal and nonlinear version
+    ebp = KSM1(signals)
+    # np.spacing = epsilon (smallest value), done so log does not return inf.
+    efp = KSM1(np.log(signals**2 + np.spacing(1)))
+    # Correlation analysis:
+    num = -2*np.multiply(efp, ebp)
+    den = np.multiply(efp, efp) + np.multiply(ebp,ebp)
+    #Feature extraction goes here
+    features = num-den
+    return features
+
+def KSM1(signals):
+    samples = signals.shape[2]
+    channels = signals.shape[1]
+    # Root squared zero moment normalized
+    m0 = np.sqrt(np.sum(signals**2,axis=2))
+    m0 = m0 ** 0.1 / 0.1
+    # Prepare derivatives for higher order moments
+    d1 = np.diff(signals, n=1, axis=2)
+    d2 = np.diff(d1     , n=1, axis=2)
+    # Root squared 2nd and 4th order moments normalized
+    m2 = np.sqrt(np.sum(d1 **2, axis=2)/ (samples-1))
+    m2 = m2 ** 0.1 / 0.1
+    m4 = np.sqrt(np.sum(d2**2,axis=2) / (samples-1))
+    m4 = m4 **0.1/0.1
+
+    # Sparseness
+    sparsi = m0/np.sqrt(np.abs((m0-m2)*(m0-m4)))
+
+    # Irregularity factor
+    IRF = m2/np.sqrt(np.multiply(m0,m4))
+
+    # Waveform Length Ratio
+    WLR = np.sum( np.abs(d1),axis=2)-np.sum(np.abs(d2),axis=2)
+
+    Feat = np.concatenate((m0, m0-m2, m0-m4, sparsi, IRF, WLR), axis=1)
+    Feat = np.log(np.abs(Feat))
+    return Feat
+
+
 
 def extract_LSF4_feats(signals, num_channels):
 
@@ -188,14 +235,15 @@ if __name__ == "__main__":
     dataset_characteristics = (num_subjects, num_motions, motion_list, num_reps, num_positions, position_list, winsize, wininc, sampling_frequency)
 
     # Handcrafted feature variables:
-    featuresets = ["TD","LSF4","LSF9"]# "TDPSD",
+    featuresets = ["TD", "TDPSD","LSF4","LSF9"]
     num_featuresets = len(featuresets)
+    featureset_times = []
 
     # Start within subject cross-validation scheme
     # For this eample, train with data from all positions from one subject.
     # Leave one repetition out for cross-validation
     within_subject_results = np.zeros((num_subjects, num_reps, num_featuresets))
-
+    
     for s in range(num_subjects):
         subject_dataset = EMGData(s)
         subject_data = subject_dataset.data
@@ -203,6 +251,9 @@ if __name__ == "__main__":
         subject_rep   = subject_dataset.rep_label
 
         for f in range(num_featuresets):
+            if s==0:
+                # Timing starts
+                t0 = time.perf_counter()
 
             if featuresets[f] == "TD":
                 features = extract_TD_feats(subject_data, num_channels)
@@ -216,6 +267,9 @@ if __name__ == "__main__":
                 print("Unknown featureset given: {}".format(featuresets[f]))
                 continue
             
+            if s == 0:
+                featureset_times.append((time.perf_counter()-t0)/subject_data.shape[0])
+
             # Now that we have the features extracted, we can partition the dataset into a training and testing set using
             # leave-one-repetition-out cross-validation.
 
@@ -271,6 +325,11 @@ if __name__ == "__main__":
     print("| STD | ",end="")
     for f in range(num_featuresets):
         print(" {} |".format(str(featureset_std[f])), end="")
+    print("")
+
+    print("| TIME (ms) | ",end="")
+    for f in range(num_featuresets):
+        print(" {} |".format(str(featureset_times[f]*1000)), end="")
     print("")
 
 
