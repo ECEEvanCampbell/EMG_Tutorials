@@ -3,6 +3,7 @@ from dataset import EMGData
 from utils import fix_random_seed
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.svm import SVC
 
 
 
@@ -237,6 +238,8 @@ if __name__ == "__main__":
                 test_class  = subject_class[testing_ids]
 
                 mdl = LinearDiscriminantAnalysis()
+                # If you'd rather use SVM, you can do so using this code instead!
+                # mdl = SVC(kernel='linear')
                 mdl.fit(train_features, train_class)
                 predictions = mdl.predict(test_features)
 
