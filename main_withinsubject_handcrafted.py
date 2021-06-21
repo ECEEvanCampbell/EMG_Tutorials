@@ -195,7 +195,7 @@ if __name__ == "__main__":
     # Leave one repetition out for cross-validation
     within_subject_results = np.zeros((num_subjects, num_reps, num_featuresets))
 
-    for s in range(num_reps):
+    for s in range(num_subjects):
         subject_dataset = EMGData(s)
         subject_data = subject_dataset.data
         subject_class = subject_dataset.class_label 
@@ -242,8 +242,33 @@ if __name__ == "__main__":
 
                 within_subject_results[s,r,f] = np.sum(predictions == test_class.numpy())/test_features.shape[0] * 100
 
-    # TODO: Add results plots.
+    # I am planning on using the github readme file to keep track of the results of different pipelines, so let's output the results in markup format
+    subject_accuracy = np.mean(within_subject_results, axis=1)
+    featureset_accuracy = np.mean(subject_accuracy,axis=0)
+    featureset_std      = np.std(subject_accuracy,axis=0)
+    print("| Subject | ", end='')
+    for f in featuresets:
+        print(" {} |".format(f), end='')
+    print("")
+    for c in range(num_featuresets+1):
+        print("| --- ",end='')
+    print("|")
 
-        
+    for s in range(num_subjects):
+        print("| S{} |".format(str(s)), end='')
+        for f in range(num_featuresets):
+            print(" {} |".format(str(subject_accuracy[s,f])),end='')
+        print("")
+    
+    print("| Mean | ",end="")
+    for f in range(num_featuresets):
+        print(" {} |".format(str(featureset_accuracy[f])), end="")
+    print("")
+
+    print("| STD | ",end="")
+    for f in range(num_featuresets):
+        print(" {} |".format(str(featureset_std[f])), end="")
+    print("")
+
 
     np.save("Results/withinsubject_handcrafted.npy", within_subject_results)
