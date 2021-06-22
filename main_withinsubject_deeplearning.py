@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
 
+#torch.backends.cudnn.enabled = False
+
 class DeepLearningModel(nn.Module):
     def __init__(self, n_output, n_channels, n_input=32):
         super().__init__()
@@ -34,21 +36,24 @@ class DeepLearningModel(nn.Module):
         self.conv2linear = nn.AdaptiveAvgPool1d(1)
 
         self.fc1 = nn.Linear(input_3, n_output)
-       
+        self.drop = nn.Dropout(p=0.2)
         self.activation = nn.ReLU()
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.activation(x)
+        x = self.drop(x)
 
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.activation(x)
+        x = self.drop(x)
 
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.activation(x)
+        x = self.drop(x)
 
         x = self.conv2linear(x)
         x = x.permute(0,2,1)
@@ -164,8 +169,8 @@ if __name__ == "__main__":
    
     # get device available for computation
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device == "cuda":
-        num_worker = 8
+    if device.type == "cuda":
+        num_workers = 4
         pin_memory = True
     else:
         num_workers = 0
@@ -186,7 +191,7 @@ if __name__ == "__main__":
     dataset_characteristics = (num_subjects, num_motions, motion_list, num_reps, num_positions, position_list, winsize, wininc, sampling_frequency)
 
     # Deep learning variables:
-    batch_size = 64
+    batch_size = 32
     lr = 0.005
     weight_decay = 0.001
     num_epochs = 30
@@ -240,4 +245,20 @@ if __name__ == "__main__":
                 plt.legend()
                 plt.show()
             within_subject_results[s,r] = test(model, test_loader, device)
+
+    subject_accuracy = np.mean(within_subject_results, axis=1) * 100
+
+    print("| Subject | ", end='')
+    print(" CNN |")
+    for c in range(1+1):
+        print("| --- ",end='')
+    print("|")
+    for s in range(num_subjects):
+        print("| S{} |".format(str(s)), end='')
+        print(" {} |".format(str(subject_accuracy[s])))
+    print("| Mean | ",end="")
+    print(" {} |".format(str(np.mean(subject_accuracy))))
+    print("| STD | ",end="")
+    print(" {} |".format(str(np.std(subject_accuracy))))
+
     np.save("Results/withinsubject_deeplearning.npy", within_subject_results)
