@@ -148,8 +148,10 @@ def test(model, test_loader, device):
         label = label.to(device)
 
         output = model(data)
-        prediction = output.argmax(dim=-1)
-        correct += int(prediction == label)
+        predictions = output.argmax(dim=-1)
+        for i, prediction in enumerate(predictions):
+            correct += int(prediction == label[i])
+
 
 
     return float(correct/ len(test_loader.dataset))
@@ -187,7 +189,8 @@ if __name__ == "__main__":
     batch_size = 64
     lr = 0.005
     weight_decay = 0.001
-    num_epochs = 50
+    num_epochs = 30
+    PLOT_LOSS = False
 
     # Start within subject cross-validation scheme
     # For this eample, train with data from all positions from one subject.
@@ -230,8 +233,11 @@ if __name__ == "__main__":
 
                 training_loss[s,r,epoch] = train(model, training_loader, optimizer, device)
                 validation_loss[s,r,epoch] = validate(model, validation_loader, device)
-           
-            plt.plot(training_loss[s,r,:],label="Train Loss")
-            plt.plot(validation_loss[s,r,:],label="Validation Loss")
-            plt.show()
+            
+            if PLOT_LOSS:
+                train_line      = plt.plot(training_loss[s,r,:],label="Train Loss")
+                validation_line = plt.plot(validation_loss[s,r,:],label="Validation Loss")
+                plt.legend()
+                plt.show()
             within_subject_results[s,r] = test(model, test_loader, device)
+    np.save("Results/withinsubject_deeplearning.npy", within_subject_results)
