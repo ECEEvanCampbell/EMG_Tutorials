@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.modules.batchnorm import BatchNorm1d
 
+from torchsample.modules import ModuleTrainer
+
 from dataset import EMGData
 from utils import fix_random_seed
 import numpy as np
@@ -232,12 +234,15 @@ if __name__ == "__main__":
 
             # training setup
             optimizer = optim.Adam(model.parameters(), lr = lr, weight_decay = weight_decay)
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', threshold=0.02, patience=3, factor=0.2)
 
             # Training Loop:
             for epoch in range(0, num_epochs):
 
                 training_loss[s,r,epoch] = train(model, training_loader, optimizer, device)
                 validation_loss[s,r,epoch] = validate(model, validation_loader, device)
+
+                scheduler.step(validation_loss[s,r,epoch])
             
             if PLOT_LOSS:
                 train_line      = plt.plot(training_loss[s,r,:],label="Train Loss")
