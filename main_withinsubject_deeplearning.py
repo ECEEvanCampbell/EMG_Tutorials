@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 #torch.backends.cudnn.enabled = False
 
 class DeepLearningModel(nn.Module):
-    def __init__(self, n_output, n_channels, n_input=32):
+    def __init__(self, n_output, n_channels, n_input=64):
         super().__init__()
         # How many filters we want
         input_0 = n_channels
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     batch_size = 32
     lr = 0.005
     weight_decay = 0.001
-    num_epochs = 30
+    num_epochs = 100
     PLOT_LOSS = False
 
     # Start within subject cross-validation scheme
