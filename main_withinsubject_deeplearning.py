@@ -172,8 +172,11 @@ if __name__ == "__main__":
     # get device available for computation
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
-        num_workers = 2
-        pin_memory  = True
+        # My PC sucks, so I can't run things in parallel. If yours can, uncomment these lines
+        #num_workers = 2
+        #pin_memory  = True
+        num_workers = 0
+        pin_memory = False
     else:
         num_workers = 0
         pin_memory  = False
