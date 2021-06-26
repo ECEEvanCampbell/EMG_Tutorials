@@ -251,25 +251,33 @@ if __name__ == "__main__":
         s_train_class = s_train_dataset.class_label 
         s_train_rep   = s_train_dataset.rep_label
 
-        for s_test in range(num_subjects):
-            s_test_dataset = EMGData(s_test)
-            s_test_data = s_test_dataset.data
-            s_test_class = s_test_dataset.class_label 
-            s_test_rep   = s_test_dataset.rep_label
+        for f in range(num_featuresets):
+            if featuresets[f] == "TD":
+                features_train = extract_TD_feats(s_train_data, num_channels)
+            elif featuresets[f] == "TDPSD": # TODO: TDPSD is a common feature set -- should be added to tutorial.
+                features_train = extract_TDPSD_feats(s_train_data, num_channels)
+            elif featuresets[f] == "LSF4":
+                features_train = extract_LSF4_feats(s_train_data, num_channels)  
+            elif featuresets[f] == "LSF9":
+                features_train = extract_LSF9_feats(s_train_data, num_channels)    
+            else:
+                print("Unknown featureset given: {}".format(featuresets[f]))
+                continue
 
-            for f in range(num_featuresets):
+
+            for s_test in range(num_subjects):
+                s_test_dataset = EMGData(s_test)
+                s_test_data = s_test_dataset.data
+                s_test_class = s_test_dataset.class_label 
+                s_test_rep   = s_test_dataset.rep_label
 
                 if featuresets[f] == "TD":
-                    features_train = extract_TD_feats(s_train_data, num_channels)
                     features_test  = extract_TD_feats(s_test_data,  num_channels)
-                elif featuresets[f] == "TDPSD": # TODO: TDPSD is a common feature set -- should be added to tutorial.
-                    features_train = extract_TDPSD_feats(s_train_data, num_channels)
+                elif featuresets[f] == "TDPSD":
                     features_test  = extract_TDPSD_feats(s_test_data,  num_channels)
                 elif featuresets[f] == "LSF4":
-                    features_train = extract_LSF4_feats(s_train_data, num_channels)
                     features_test  = extract_LSF4_feats(s_test_data,  num_channels)
                 elif featuresets[f] == "LSF9":
-                    features_train = extract_LSF9_feats(s_train_data, num_channels)
                     features_test  = extract_LSF9_feats(s_test_data,  num_channels)
                 else:
                     print("Unknown featureset given: {}".format(featuresets[f]))
