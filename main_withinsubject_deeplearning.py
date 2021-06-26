@@ -42,24 +42,30 @@ class DeepLearningModel(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, x):
+        # Forward pass: input x, output probabilities of predicted class
+        # First layer
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.activation(x)
         x = self.drop(x)
 
+        # Second Layer
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.activation(x)
         x = self.drop(x)
 
+        # Third Layer
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.activation(x)
         x = self.drop(x)
 
+        # Convert to linear layer suitable input
         x = self.conv2linear(x)
         x = x.permute(0,2,1)
        
+        # final layer: linear layer that outputs N_Class neurons
         x = self.fc1(x)
         x = F.log_softmax(x, dim=2)
 
@@ -99,68 +105,75 @@ def pad_sequence(batch):
 
 
 def train(model, training_loader, optimizer, device):
+    # Train the model
+    # model.train - enable gradient tracking, enable batch normalization, dropout
     model.train()
+    # Store losses of this epoch in a list (element = loss on batch)
     losses = []
 
     for batch_idx, (data, label) in enumerate(training_loader):
-        if data.shape[0]==1:
-            continue
-
+        # Send data, labels to GPU if GPU is available
         data = data.to(device)
         label = label.to(device)
-
+        # Passing data to model calls the forward method.
         output = model(data)
         # Output: (batch_size, 1, n_class)
+        # Use negative log likelihood loss for training
         loss = F.nll_loss(output.squeeze(), label)
-
+        # reset optimizer buffer
         optimizer.zero_grad()
+        # Send the loss to the optimizer (direction of update for each neuron)
         loss.backward()
+        # Update weights 
         optimizer.step()
-
+        # Store the loss of this batch
         losses.append(loss.item())
-
+    # Return the average training loss on this epoch
     return sum(losses)/len(losses)
 
 
 def validate(model, validation_loader, device):
+    # Evaluate the model
+    # model.eval - disable gradient tracking, batch normalization, dropout
     model.eval()
+    # Store losses of this epoch in a list (element = loss on batch)
     losses = []
 
     for batch_idx, (data, label) in enumerate(validation_loader):
-        if data.shape[0]==1:
-            continue
-
+        # Send data, labels to GPU if GPU is available
         data = data.to(device)
         label = label.to(device)
-
+        # Passing data to model calls the forward method.
         output = model(data)
         # Output: (batch_size, 1, n_class)
+        # Use negative log likelihood loss for validation
         loss = F.nll_loss(output.squeeze(), label)
-
+        # Store the loss of this batch
         losses.append(loss.item())
 
+    # Return the average validation loss on this epoch
     return sum(losses)/len(losses)
 
 
 
 def test(model, test_loader, device):
+    # Evaluate the model
+    # model.eval - disable gradient tracking, batch normalization, dropout
     model.eval()
+    # Keep track of correct samples
     correct = 0
 
     for batch_idx, (data, label) in enumerate(test_loader):
-        if data.shape[0]==1:
-            continue
-
+        # Send data, labels to GPU if GPU is available
         data = data.to(device)
         label = label.to(device)
-
+        # Passing data to model calls the forward method.
         output = model(data)
         predictions = output.argmax(dim=-1)
+        # Add up correct samples from batch
         for i, prediction in enumerate(predictions):
             correct += int(prediction == label[i])
-
-
-
+    # Return average accuracy 
     return float(correct/ len(test_loader.dataset))
 
 
