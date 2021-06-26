@@ -4,6 +4,8 @@ from utils import fix_random_seed
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.svm import SVC
+import warnings
+
 
 
 def extract_TD_feats(signals, num_channels):
@@ -209,15 +211,11 @@ def getVARfeat(signal):
     return feat
 
 
-
-
-
-
-
 if __name__ == "__main__":
     # Fix the random seed -- make results reproducible
     # Found in utils.py, this sets the seed for the random, torch, and numpy libraries. 
     fix_random_seed(1, torch.cuda.is_available())
+    warnings.filterwarnings('ignore')
     
     # Dataset details, packaged together to easily pass them through functions if required.
     num_subjects  = 10
@@ -263,7 +261,11 @@ if __name__ == "__main__":
             else:
                 print("Unknown featureset given: {}".format(featuresets[f]))
                 continue
-
+            
+            mdl = LinearDiscriminantAnalysis()
+            # If you'd rather use SVM, you can do so using this code instead!
+            # mdl = SVC(kernel='linear')
+            mdl.fit(features_train, s_train_class)
 
             for s_test in range(num_subjects):
                 s_test_dataset = EMGData(s_test)
@@ -283,35 +285,41 @@ if __name__ == "__main__":
                     print("Unknown featureset given: {}".format(featuresets[f]))
                     continue
 
-                mdl = LinearDiscriminantAnalysis()
-                # If you'd rather use SVM, you can do so using this code instead!
-                # mdl = SVC(kernel='linear')
-                mdl.fit(features_train, s_train_class)
+                
                 predictions = mdl.predict(features_test)
 
                 between_subject_results[s_train,s_test, f] = np.sum(predictions == s_test_class.numpy())/features_test.shape[0] * 100
 
     # I am planning on using the github readme file to keep track of the results of different pipelines, so let's output the results in markup format
-    s_train_accuracy = np.mean(between_subject_results,axis=1) # average across testing subjects for each training subject
-    s_test_accuracy  = np.mean(between_subject_results,axis=0) # average across training subjects for each test subject
+    # Keep in mind, this table DOES currently include a "cheating" within-subject case. That entry should be completely omitted before outputting the table
+    between_subject_results_1 = between_subject_results[~np.eye(between_subject_results.shape[0],dtype=bool)].reshape(between_subject_results.shape[0],-1, num_featuresets)
+    s_train_accuracy = np.mean(between_subject_results_1,axis=1) # average across testing subjects for each training subject
+    between_subject_results_2 = between_subject_results[~np.eye(between_subject_results.shape[0],dtype=bool)].reshape(-1,between_subject_results.shape[1], num_featuresets)
+    s_test_accuracy  = np.mean(between_subject_results_2,axis=0) # average across training subjects for each test subject
 
-    for f in features_test:
+    for fi, f in enumerate(featuresets):
         # Preface table with feature set
-        print("##{f}")
+        print(f"##{f}")
         # Setup the header
         print("| train \ test | ", end='')
         for s in range(num_subjects):
-            print(" S{s} | ", end="")
+            print(f" S{s} | ", end="")
         print(" Mean |")
         for s_train in range(num_subjects):
-            print("| S{s} | ",end="")
+            print(f"| S{s_train} | ",end="")
             for s_test in range(num_subjects):
-                print(" {between_subject_results[s_train, s_test,f]} |", end="")
-            print (" {s_train_accuracy[s_train,f]} |")
+                if s_train == s_test:
+                    print(f" NA | ",end="")
+                elif s_test < s_train:
+                    print(f" {between_subject_results_1[s_train, s_test,fi]} |", end="")
+                elif s_test > s_train:
+                    print(f" {between_subject_results_1[s_train, s_test-1,fi]} |", end="")
+
+            print (f" {s_train_accuracy[s_train,fi]} |")
 
         print("| Mean | ",end="")
         for s_test in range(num_subjects):
-            print(" {s_test_accuracy[s_test,f]} |", end="")
+            print(f" {s_test_accuracy[s_test,fi]} |", end="")
 
         print("\n\n")
     
