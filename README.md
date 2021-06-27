@@ -6,21 +6,23 @@ Next, run the main_construct_dataset function.  This performs windowing of the d
 
 These files can be used in the subsequent tutorial scripts.
 
-1. Within Subject Handcrafted Feature Pipeline:
-This pipeline performs gesture recognition using statistical features (for instance, mean absolute value, zero crossings, slope sign change, waveform length) and statistical classifiers (linear discriminant analysis, support vector machine).
-In progress
+1. Within Subject Handcrafted Feature Pipeline (main_withinsubject_handcrafted.py)
 
-2. Within Subject Deep learning Pipeline Using Convolutional Neural Networks
-In progress
+2. Within Subject Deep learning Pipeline Using Convolutional Neural Networks (main_withinsubject_deeplearning.py)
 
 
-3. Between Subject Handcrafted Feature Pipeline:
-This shows the degradation experienced when users wish to use an sEMG gesture recognition system but do not provide data themselves through a recent acquisition protocol (See Saponas et al.).
-In progress
-
+3. Between Subject Handcrafted Feature Pipelin (main_betweensubject_handcrafted.py)
 
 4. Between Subject Handcrafted Features Pipeline with Projection Techniques (Canonical Correlation Analysis):
-Prior to 2020, the state-of-the-art technique for achieving high performance for between subject gesture recognition relied on canonical correlation analysis (See Khushaba et al 2015).
+Prior to 2020, the state-of-the-art technique for achieving high performance for between subject gesture recognition relied on canonical correlation analysis (See Khushaba et al 2015). - in progress
+
+5. Between Subject Deep Learning Pipeline Using Convolutional Neural Networks
+*  Using a single subject to train the deep learning model for another subject (main_betweensubject_deeplearning.py)
+*  Using all other subjects to train the deep learning model for a particular subject (main_pooledsubject_deeplearning.py - in progress)
+
+
+
+
 In progress
 
 
@@ -119,3 +121,18 @@ In progress
 | S9 |  34.90794919366348 | 51.1521723621317 | 26.543430162015557 | 54.606484787887446 | 24.451254275940705 | 37.52139189960069 | 39.82149232416994 | 43.49442379182156 | 21.454597413731513 | NA |  37.105910690106946 |
 | Mean |  31.216667573206166 | 42.86520436301945 | 40.623952595776764 | 36.39354995554014 | 29.870048401437273 | 31.27033293487077 | 36.98032109034862 | 38.2744118558436 | 40.51536733329962 | 31.711232549455715 |
 
+
+## CNN
+| train \ test |  S0 |  S1 |  S2 |  S3 |  S4 |  S5 |  S6 |  S7 |  S8 |  S9 |  Mean |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S0 |  NA |  0.4709995006064065 | 0.3976161587324245 | 0.20761319811455506 | 0.6163055872291904 | 0.3152452937820879 | 0.25548018564798286 | 0.13482985416070917 | 0.3619347002929199 | 0.23239888722448107 | 0.33249148508786186 |
+| S1 |  0.47245611531325815 | NA |  0.17471986296481337 | 0.6399085844879303 | 0.626354047890536 | 0.6567313177410155 | 0.5366654766154945 | 0.3902630826422648 | 0.6235621918982639 | 0.39104073043726373 | 0.5013001566656489 |
+| S2 |  0.4757385471671186 | 0.07569380038524649 | NA |  0.20632766747607484 | 0.12143671607753706 | 0.06988020536223617 | 0.08589789360942521 | 0.13533028309979983 | 0.03507894548831893 | 0.15871317497681717 | 0.15156635929361936 |
+| S3 |  0.33723419437705154 | 0.707926089748163 | 0.179287702519449 | NA |  0.5030644241733181 | 0.6723474044495151 | 0.4936808282756158 | 0.45145839290820705 | 0.5924841037365149 | 0.5023896140951566 | 0.4933191949203323 |
+| S4 |  0.655273298130441 | 0.5582506955839338 | 0.23353079723074727 | 0.33716611912583916 | NA |  0.5016400456360525 | 0.3985005355230275 | 0.24857020303116958 | 0.49074801743230695 | 0.31614237820101293 | 0.41553578776605893 |
+| S5 |  0.3512202083630655 | 0.6268103017764144 | 0.11441010634501463 | 0.728253106699043 | 0.4923745724059293 | NA |  0.4720456979650125 | 0.46418358593079784 | 0.7317282274773166 | 0.4326271488693915 | 0.49040588398133167 |
+| S6 |  0.19823034108748394 | 0.6666191053720483 | 0.04111055599172079 | 0.643622339665762 | 0.34927309007981755 | 0.6177980604677695 | NA |  0.5090077209036317 | 0.5596199185539759 | 0.4247093230615593 | 0.44555449502041866 |
+| S7 |  0.22077922077922077 | 0.3499322251551687 | 0.08307758189993576 | 0.5451364090844165 | 0.30252280501710377 | 0.3594552196235026 | 0.37750803284541234 | NA |  0.29163392155461887 | 0.5251444468221699 | 0.339465540309061 |
+| S8 |  0.30676466390752105 | 0.7181993293857459 | 0.13475126686175148 | 0.4164405084987859 | 0.3390820980615735 | 0.5148317170564746 | 0.3965726526240628 | 0.22326279668287102 | NA |  0.3808402881803267 | 0.38119392458434587 |
+| S9 |  0.31589838732695874 | 0.591710066348006 | 0.08043679965741203 | 0.6103413798028853 | 0.23603192702394526 | 0.4028094694808899 | 0.42541949303820065 | 0.451172433514441 | 0.27034364506680003 | NA |  0.3760181779177265 |
+| Mean |  0.3900310143844728 | 0.45496174865603756 | 0.41122341816316843 | 0.4170204119568795 | 0.3543469720380221 | 0.3262890176701671 | 0.3919252615068052 | 0.4054740868681917 | 0.43714675821237514 | 0.3384323160902861 |
