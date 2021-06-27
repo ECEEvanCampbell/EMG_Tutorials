@@ -1,39 +1,32 @@
 # EMG_Tutorials
 
-In order to run the tutorial, first get the dataset from google drive: 
+This repository houses an EMG gesture recognition tutorial by Evan Campbell.  In this tutorial, both handcrafted and deep learning approaches for gesture recognition are covered in Python.  A provided dataset can be downloaded following the instructions found in Data/Raw_Data/instructions.txt.
 
-Next, run the main_construct_dataset function.  This performs windowing of the dataset and stores the dataset as .npy files.
+In order to follow the tutorial, first the main_construct_dataset.py function must be run to prepare the recorded gestures (.csv files) into windowed segments (.npy files).  This script also performs filtering typically used in EMG gesture recognition. A notch filter was used to remove power line interference (60 Hz noise), and a bandpass filter was used with a pass band between 20-450 Hz to remove motion artefact contaminants and electrical component noise while retaining the majority of the EMG signal energy. With the current specified values, windows were formed using 250 ms length and 100 ms increment (150 ms overlap).
 
-These files can be used in the subsequent tutorial scripts.
+For the handcrafted features, a number of common feature sets from EMG literature were used.  The Hudgins time domain feature set was used, which contains 4 features per channel (mean absolute value, zero crossings, slope sign change, and waveform length). The time domain power spectral descriptors (Khushaba's feature set) was also included which contains 6 features per channel (normalized 0th order moment, normalized 2nd order moment, normalized 4th order moment, sparsity, irregularity factor, and waveform length ratio). The low sampling frequency 4 feature set was also used which contains (l-score, maximum fractal length, mean squared ratio, and willison's amplitude). The low sampling frequency 9 feature set extends the previous feature set by adding 5 more features per channel (zero crossings, root mean square, integral of EMG, DASDV, and variance).
+
+For the deep learning pipelines, a simple architecture was used which has 3 convolutional blocks followed by a linear layer.  The convolutional blocks all contained a convolutional layer, batch normalization, ReLU activation function, and dropout. Negative log likelihood loss was used alongside the Adam optimizer during training.  The learning rate was initialized to 0.005 and a scheduler adapted the learning rate by monitoring the validation loss throughout over the epochs.
 
 1. Within Subject Handcrafted Feature Pipeline (main_withinsubject_handcrafted.py)
 
 2. Within Subject Deep learning Pipeline Using Convolutional Neural Networks (main_withinsubject_deeplearning.py)
 
-
 3. Between Subject Handcrafted Feature Pipelin (main_betweensubject_handcrafted.py)
 
-4. Between Subject Handcrafted Features Pipeline with Projection Techniques (Canonical Correlation Analysis):
-Prior to 2020, the state-of-the-art technique for achieving high performance for between subject gesture recognition relied on canonical correlation analysis (See Khushaba et al 2015). - in progress
+4. Between Subject Handcrafted Features Pipeline with Projection Techniques (main_betweensubject_handcraftedcca.py - in progress):
+Prior to 2020, the state-of-the-art technique for achieving high performance for between subject gesture recognition relied on canonical correlation analysis (See Khushaba et al 2015).
 
 5. Between Subject Deep Learning Pipeline Using Convolutional Neural Networks
 *  Using a single subject to train the deep learning model for another subject (main_betweensubject_deeplearning.py)
 *  Using all other subjects to train the deep learning model for a particular subject (main_pooledsubject_deeplearning.py - in progress)
 
-
-
-
-In progress
-
-
-5. Subject-Independent Adaptive Domain Adversarial Neural Network:
+6. Subject-Independent Adaptive Domain Adversarial Neural Network (main_subjectindependent_ADANN.py - in progress)
 This technique builds a model that is well suited for many subjects.  This was a breakthrough towards between subject gesture recognition, but at this point a full acquisition protocol was still required by all end users (Cote-Allard et al 2020).
-In progress
 
-
-6. Between Subject Adaptive Domain Adversarial Neural Network:
+7. Between Subject Adaptive Domain Adversarial Neural Network (main_betweensubject_ADANN.py - in progress)
 This technique builds off the subject-independent adaptive domain adversarial neural network but has a mechanism to adapt to a subject that only provides a single repetition (Campbell et al 2021).
-In progress
+
 
 
 
