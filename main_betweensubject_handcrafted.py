@@ -252,7 +252,7 @@ if __name__ == "__main__":
         for f in range(num_featuresets):
             if featuresets[f] == "TD":
                 features_train = extract_TD_feats(s_train_data, num_channels)
-            elif featuresets[f] == "TDPSD": # TODO: TDPSD is a common feature set -- should be added to tutorial.
+            elif featuresets[f] == "TDPSD":
                 features_train = extract_TDPSD_feats(s_train_data, num_channels)
             elif featuresets[f] == "LSF4":
                 features_train = extract_LSF4_feats(s_train_data, num_channels)  
@@ -299,21 +299,24 @@ if __name__ == "__main__":
 
     for fi, f in enumerate(featuresets):
         # Preface table with feature set
-        print(f"##{f}")
+        print(f"## {f}")
         # Setup the header
         print("| train \ test | ", end='')
         for s in range(num_subjects):
             print(f" S{s} | ", end="")
         print(" Mean |")
+
+        for s in range(num_subjects+2):
+            print("| --- ", end='')
+        print("|")
+
         for s_train in range(num_subjects):
             print(f"| S{s_train} | ",end="")
             for s_test in range(num_subjects):
                 if s_train == s_test:
                     print(f" NA | ",end="")
-                elif s_test < s_train:
-                    print(f" {between_subject_results_1[s_train, s_test,fi]} |", end="")
-                elif s_test > s_train:
-                    print(f" {between_subject_results_1[s_train, s_test-1,fi]} |", end="")
+                else:
+                    print(f" {between_subject_results[s_train, s_test,fi]} |", end="")
 
             print (f" {s_train_accuracy[s_train,fi]} |")
 
