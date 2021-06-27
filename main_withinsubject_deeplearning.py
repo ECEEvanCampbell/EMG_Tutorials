@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.modules.batchnorm import BatchNorm1d
 
-from torchsample.modules import ModuleTrainer
 
 from dataset import EMGData
 from utils import fix_random_seed
