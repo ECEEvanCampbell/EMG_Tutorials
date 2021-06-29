@@ -261,38 +261,21 @@ if __name__ == "__main__":
         pooled_subject_results[s_test] = test(model, test_loader, device)
 
     # # I am planning on using the github readme file to keep track of the results of different pipelines, so let's output the results in markup format
-    # # Keep in mind, this table DOES currently include a "cheating" within-subject case. That entry should be completely omitted before outputting the table
-    # between_subject_results_1 = between_subject_results[~np.eye(between_subject_results.shape[0],dtype=bool)].reshape(between_subject_results.shape[0],-1)
-    # s_train_accuracy = np.mean(between_subject_results_1,axis=1) # average across testing subjects for each training subject
-    # between_subject_results_2 = between_subject_results[~np.eye(between_subject_results.shape[0],dtype=bool)].reshape(-1,between_subject_results.shape[1])
-    # s_test_accuracy  = np.mean(between_subject_results_2,axis=0) # average across training subjects for each test subject
+    s_test_accuracy  = np.mean(pooled_subject_results,axis=0) # average across training subjects for each test subject
 
     # # Preface table with CNN
-    # print(f"## CNN")
+    print(f"## Pooled CNN")
     # # Setup the header
-    # print("| train \ test | ", end='')
-    # for s in range(num_subjects):
-    #     print(f" S{s} | ", end="")
-    # print(" Mean |")
+    for s in range(num_subjects):
+        print(f" S{s} | ", end="")
+    print(" Mean |")
 
-    # for s in range(num_subjects+2):
-    #     print("| --- ", end='')
-    # print("|")
+    for s in range(num_subjects+2):
+        print("| --- ", end='')
+    print("|")
 
-    # for s_train in range(num_subjects):
-    #     print(f"| S{s_train} | ",end="")
-    #     for s_test in range(num_subjects):
-    #         if s_train == s_test:
-    #             print(f" NA | ",end="")
-    #         else:
-    #             print(f" {between_subject_results[s_train, s_test]} |", end="")
-
-    #     print (f" {s_train_accuracy[s_train]} |")
-
-    # print("| Mean | ",end="")
-    # for s_test in range(num_subjects):
-    #     print(f" {s_test_accuracy[s_test]} |", end="")
-
-    
+    for s_test in range(num_subjects):
+        print(f" {pooled_subject_results[s_test]} |", end="")
+    print( f"  {s_test_accuracy} |")
     
     np.save("Results/pooledsubject_deeplearning.npy", pooled_subject_results)
