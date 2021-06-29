@@ -277,5 +277,5 @@ if __name__ == "__main__":
     for s_test in range(num_subjects):
         print(f" {pooled_subject_results[s_test]} |", end="")
     print( f"  {s_test_accuracy} |")
-    
+
     np.save("Results/pooledsubject_deeplearning.npy", pooled_subject_results)
