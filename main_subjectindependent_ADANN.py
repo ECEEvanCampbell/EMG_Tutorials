@@ -10,8 +10,24 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
+from torch.autograd import Function
 
-#torch.backends.cudnn.enabled = False
+# Define a layer that records the negative gradient for training subject encodings
+class ReversalGradientLayerF(Function):
+    @staticmethod
+    def forward(ctx, input, lambda_hyper_parameter):
+        ctx.lambda_hyper_parameter = lambda_hyper_parameter
+        return input.view_as(input)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.lambda_hyper_parameter
+        return output, None
+
+    @staticmethod
+    def grad_reverse(x, constant):
+        return ReversalGradientLayerF.apply(x, constant)
+
 
 class DeepLearningModel(nn.Module):
     def __init__(self, n_output, n_channels, n_input=64):
@@ -35,7 +51,11 @@ class DeepLearningModel(nn.Module):
         # Get convolutional style output into linear format
         self.conv2linear = nn.AdaptiveAvgPool1d(1)
 
+        # Classification Head
         self.fc1 = nn.Linear(input_3, n_output)
+        # Subject Head
+        self.fc2 = nn.Linear(input_3, 2)
+
         self.drop = nn.Dropout(p=0.2)
         self.activation = nn.ReLU()
 
@@ -64,10 +84,15 @@ class DeepLearningModel(nn.Module):
         x = x.permute(0,2,1)
        
         # final layer: linear layer that outputs N_Class neurons
-        x = self.fc1(x)
-        x = F.log_softmax(x, dim=2)
+        y = self.fc1(x)
+        y = F.log_softmax(y, dim=2)
 
-        return x
+        # Subject Head
+        reversed_layer = ReversalGradientLayerF.grad_reverse(x, lambda_value)
+        s = self.fc2(reversed_layer)
+
+        # Return both class and subject
+        return y,s
 
 
 
