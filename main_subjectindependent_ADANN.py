@@ -26,11 +26,12 @@ class ReversalGradientLayerF(Function):
 
     @staticmethod
     def grad_reverse(x, constant):
+        # Constant is lambda value from paper.
         return ReversalGradientLayerF.apply(x, constant)
 
 
 class DeepLearningModel(nn.Module):
-    def __init__(self, n_output, n_channels, n_input=64):
+    def __init__(self, n_output, n_channels, n_input=64, lambda_value=0.1):
         super().__init__()
         # How many filters we want
         input_0 = n_channels
@@ -58,6 +59,8 @@ class DeepLearningModel(nn.Module):
 
         self.drop = nn.Dropout(p=0.2)
         self.activation = nn.ReLU()
+
+        self.lambda_value = lambda_value
 
     def forward(self, x):
         # Forward pass: input x, output probabilities of predicted class
@@ -88,7 +91,7 @@ class DeepLearningModel(nn.Module):
         y = F.log_softmax(y, dim=2)
 
         # Subject Head
-        reversed_layer = ReversalGradientLayerF.grad_reverse(x, lambda_value)
+        reversed_layer = ReversalGradientLayerF.grad_reverse(x, self.lambda_value)
         s = self.fc2(reversed_layer)
 
         # Return both class and subject
