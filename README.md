@@ -19,7 +19,7 @@ Prior to 2020, the state-of-the-art technique for achieving high performance for
 
 5. Between Subject Deep Learning Pipeline Using Convolutional Neural Networks
 *  Using a single subject to train the deep learning model for another subject (main_betweensubject_deeplearning.py)
-*  Using all other subjects to train the deep learning model for a particular subject (main_pooledsubject_deeplearning.py - in progress)
+*  Using all other subjects to train the deep learning model for a particular subject (main_pooledsubject_deeplearning.py)
 
 6. Subject-Independent Adaptive Domain Adversarial Neural Network (main_subjectindependent_ADANN.py - in progress)
 This technique builds a model that is well suited for many subjects.  This was a breakthrough towards between subject gesture recognition, but at this point a full acquisition protocol was still required by all end users (Cote-Allard et al 2020).
