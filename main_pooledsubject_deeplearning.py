@@ -91,15 +91,10 @@ def collate_fn(batch):
         labels  += [label]
    
     # Convert lists to tensors
-    signals = pad_sequence(signals)
+    signals = torch.stack(signals)
     labels  = torch.stack(labels).long()
 
     return signals, labels
-
-def pad_sequence(batch):
-    batch = [item.t() for item in batch]
-    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
-    return batch.permute(0,2,1)
 
 
 def train(model, training_loader, optimizer, device):

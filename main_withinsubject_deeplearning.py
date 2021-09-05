@@ -33,7 +33,7 @@ class DeepLearningModel(nn.Module):
         self.conv3 = nn.Conv1d(input_2, input_3, kernel_size=3)
         self.bn3   = nn.BatchNorm1d(input_3)
 
-        # Get convolutional style output into linear format
+        # Get take average across filters
         self.conv2linear = nn.AdaptiveAvgPool1d(1)
 
         self.fc1 = nn.Linear(input_3, n_output)
@@ -86,21 +86,17 @@ def build_data_loader(batch_size, num_workers, pin_memory, data):
 def collate_fn(batch):
     signals, labels = [], []
     # Populate these lists from the batch
-    for signal, label, position in batch:
+    for signal, label, _ in batch:
         # Concate signal onto list signals
         signals += [signal]
         labels  += [label]
    
     # Convert lists to tensors
-    signals = pad_sequence(signals)
+    signals = torch.stack(signals)
     labels  = torch.stack(labels).long()
 
     return signals, labels
 
-def pad_sequence(batch):
-    batch = [item.t() for item in batch]
-    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
-    return batch.permute(0,2,1)
 
 
 def train(model, training_loader, optimizer, device):
