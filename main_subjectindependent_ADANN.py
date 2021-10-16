@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn import parameter
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.modules.batchnorm import BatchNorm1d
@@ -30,9 +31,21 @@ class ReversalGradientLayerF(Function):
         return ReversalGradientLayerF.apply(x, constant)
 
 
-class DeepLearningModel(nn.Module):
-    def __init__(self, n_output, n_channels, n_input=64, lambda_value=0.1):
+class ADANNModel(nn.Module):
+    def __init__(self, n_output, n_channels, input_dims, n_input=64, lambda_value=0.1, num_subjects=10):
         super().__init__()
+
+        self.lambda_value = lambda_value
+        self.num_subjects = num_subjects
+
+        self.init_network(n_channels, n_input, n_output, input_dims)
+
+        self.BN_dict = self.init_BN_dict()
+        # self.switch_BN_dict(1) # Checked, working
+        # self.update_BN_dict(1) # Checked, working
+        # A = 1
+
+    def init_network(self, n_channels, n_input, n_output, input_dims):
         # How many filters we want
         input_0 = n_channels
         input_1 = n_input
@@ -50,17 +63,49 @@ class DeepLearningModel(nn.Module):
         self.bn3   = nn.BatchNorm1d(input_3)
 
         # Get convolutional style output into linear format
-        self.conv2linear = nn.AdaptiveAvgPool1d(1)
+        fc_input_dims = self.calculate_conv_output_dims(input_dims)
 
         # Classification Head
-        self.fc1 = nn.Linear(input_3, n_output)
+        self.fc1 = nn.Linear(fc_input_dims, n_output)
         # Subject Head
         self.fc2 = nn.Linear(input_3, 2)
 
         self.drop = nn.Dropout(p=0.2)
         self.activation = nn.ReLU()
 
-        self.lambda_value = lambda_value
+    def init_BN_dict(self):
+        list_BN_dictionary = []
+        BN_dictionary = {}
+        for name, param in self.named_parameters():
+            if 'bn' in name:
+                # We collect
+                BN_dictionary[name] = param.data.detach().clone()
+        # repeat dictionary for num_subjects
+        for s in range(self.num_subjects):
+            list_BN_dictionary.append(BN_dictionary.copy())
+
+        return list_BN_dictionary
+
+    def switch_BN_dict(self, subject_id):
+        current_state = self.state_dict()
+        for name in self.BN_dict[subject_id]:
+            if name not in current_state:
+                print('Error in BN state_dict format')
+                raise(KeyError)
+            params = self.BN_dict[subject_id][name].detach().clone() * 5
+            current_state[name].copy_(params)
+    
+    def update_BN_dict(self, subject_id):
+        current_state = self.state_dict()
+        for name in self.BN_dict[subject_id]:
+            self.BN_dict[subject_id][name] = current_state[name]
+
+    def calculate_conv_output_dims(self, input_dims):
+        state = torch.zeros(1, *input_dims)
+        dims = self.conv1(state)
+        dims = self.conv2(dims)
+        dim = self.conv3(dims)
+        return int(np.prod(dims.size()))
 
     def forward(self, x):
         # Forward pass: input x, output probabilities of predicted class
@@ -82,15 +127,14 @@ class DeepLearningModel(nn.Module):
         x = self.activation(x)
         x = self.drop(x)
 
-        # Convert to linear layer suitable input
-        x = self.conv2linear(x)
-        x = x.permute(0,2,1)
+        # Flatten in preparation for linear layer
+        x = x.view(x.size()[0], -1)
        
         # final layer: linear layer that outputs N_Class neurons
         y = self.fc1(x)
         y = F.log_softmax(y, dim=2)
 
-        # Subject Head
+        # Subject Head - This is where the gradient is reversed to penalize subject specific information
         reversed_layer = ReversalGradientLayerF.grad_reverse(x, self.lambda_value)
         s = self.fc2(reversed_layer)
 
@@ -239,11 +283,11 @@ if __name__ == "__main__":
     lr = 0.005
     lambda_val = 0.1
     weight_decay = 0.001
-    num_epochs = 100
+    num_epochs = 1000
     PLOT_LOSS = False
 
     # Start within subject cross-validation scheme
-    # For this eample, train with data from all positions from one subject.
+    # For this example, train with data from all positions from one subject.
     # Leave one repetition out for cross-validation
     independent_subject_results = np.zeros((num_subjects))
     # Unlike a standard CNN, we have a loss from the class prediction and a loss from the subject prediction
@@ -280,7 +324,19 @@ if __name__ == "__main__":
 
 
 
+
+    model = ADANNModel(n_output=num_motions, n_channels=num_channels, num_subjects=num_subjects, input_dims=[num_channels, winsize])
+
+    # send to gpu
+    model.to(device)
+
+    # training setup
+    optimizer = optim.Adam(model.parameters(), lr = lr, weight_decay = weight_decay)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', threshold=0.02, patience=3, factor=0.2)
+    
     # Train process:
+    for epoch in range(num_epochs):
+        # First, select two subjects
 
     # Test process:
 
