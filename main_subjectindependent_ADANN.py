@@ -173,8 +173,10 @@ def pad_sequence(batch):
     batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
     return batch.permute(0,2,1)
 
-
-def train(model, training_loader, optimizer, device):
+# TODO: change from vanilla DL train to ADANN train
+# Class loss & subject loss
+# change BN parameters between subjects
+def train(model, domain_train_loader, antagonistic_train_loader, optimizer, device):
     # Train the model
     # model.train - enable gradient tracking, enable batch normalization, dropout
     model.train()
@@ -201,7 +203,7 @@ def train(model, training_loader, optimizer, device):
     # Return the average training loss on this epoch
     return sum(losses)/len(losses)
 
-
+# TODO: change from vanilla DL validate to ADANN validate
 def validate(model, validation_loader, device):
     # Evaluate the model
     # model.eval - disable gradient tracking, batch normalization, dropout
@@ -278,6 +280,10 @@ if __name__ == "__main__":
     wininc = 100
     dataset_characteristics = (num_subjects, num_motions, motion_list, num_reps, num_positions, position_list, winsize, wininc, sampling_frequency)
 
+    train_rep = [1,2]
+    val_rep   = [3]
+    test_rep  = [4]
+
     # Deep learning variables:
     batch_size = 32
     lr = 0.005
@@ -291,10 +297,14 @@ if __name__ == "__main__":
     # Leave one repetition out for cross-validation
     independent_subject_results = np.zeros((num_subjects))
     # Unlike a standard CNN, we have a loss from the class prediction and a loss from the subject prediction
-    training_class_loss = np.zeros((num_epochs))
-    training_subject_loss = np.zeros((num_epochs))
-    validation__class_loss = np.zeros((num_epochs))
-    validation__subject_loss = np.zeros((num_epochs))
+    domain_training_class_loss = np.zeros((num_epochs))
+    domain_training_subject_loss = np.zeros((num_epochs))
+    domain_validation_class_loss = np.zeros((num_epochs))
+    domain_validation_subject_loss = np.zeros((num_epochs))
+    antagonistic_training_class_loss = np.zeros((num_epochs))
+    antagonistic_training_subject_loss = np.zeros((num_epochs))
+    antagonistic_validation_class_loss = np.zeros((num_epochs))
+    antagonistic_validation_subject_loss = np.zeros((num_epochs))
     # The pairs of subjects selected during training is random. Let's keep track of these in a list
     training_subjects_selected = []
     
@@ -322,9 +332,6 @@ if __name__ == "__main__":
 
     # 
 
-
-
-
     model = ADANNModel(n_output=num_motions, n_channels=num_channels, num_subjects=num_subjects, input_dims=[num_channels, winsize])
 
     # send to gpu
@@ -337,6 +344,34 @@ if __name__ == "__main__":
     # Train process:
     for epoch in range(num_epochs):
         # First, select two subjects
+        epoch_subjects = np.random.choice(np.array(range(num_subjects)), 2, replace=False)
+        # Get the data for subject 0, and subject 1
+        # These numbers later indicate what label the domain linear layer tries to predict
+        domain_subject = epoch_subjects[0]
+        antagonistic_subject = epoch_subjects[1]
+        # This loading procedure adds a LARGE amount of time to the training procedure (repeated each epoch)
+        # __ future work could be to find a method to improve this area while not requiring incredible amounts of memory.
+        # These datasets only contain the training data ~ 50% of this dataset
+        domain_data_train         = EMGData(domain_subject, chosen_rep_labels=train_rep)
+        domain_train_loader       = build_data_loader(batch_size, num_workers, pin_memory, domain_data_train)
+        antagonistic_data_train   = EMGData(antagonistic_subject, chosen_rep_labels=train_rep)
+        antagonistic_train_loader = build_data_loader(batch_size, num_workers, pin_memory, antagonistic_data_train)
+        # These datasets only contain the validation data ~ 25% of this dataset
+        domain_data_valid         = EMGData(domain_subject, chosen_rep_labels=val_rep)
+        domain_valid_loader       = build_data_loader(batch_size, num_workers, pin_memory, domain_data_valid)
+        antagonistic_data_valid   = EMGData(antagonistic_subject, chosen_rep_labels=val_rep)
+        antagonistic_valid_loader = build_data_loader(batch_size, num_workers, pin_memory, antagonistic_data_valid)
+
+        domain_training_class_loss[epoch], domain_training_subject_loss[epoch], \
+            antagonistic_training_class_loss[epoch], antagonistic_training_subject_loss[epoch] = train(model, domain_train_loader, antagonistic_train_loader, optimizer, device)
+        domain_validation_class_loss[epoch], domain_validation_subject_loss[epoch], \
+            antagonistic_validation_class_loss[epoch], antagonistic_validation_subject_loss[epoch] = validate(model, domain_valid_loader, antagonistic_valid_loader, device)
+        
+        validation_loss = (1-model.lambda_value) * (domain_validation_class_loss + antagonistic_validation_class_loss)/2 + \
+            (model.lambda_value) * (domain_validation_subject_loss + antagonistic_validation_subject_loss)/2
+
+        scheduler.step(validation_loss)
+        # Add a nice print statement
 
     # Test process:
 
