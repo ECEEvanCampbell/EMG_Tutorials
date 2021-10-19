@@ -63,13 +63,13 @@ class ADANNModel(nn.Module):
 
         # What layers do we want
         self.conv1 = nn.Conv1d(input_0, input_1, kernel_size=3)
-        self.bn1   = nn.BatchNorm1d(input_1)
+        self.bn1   = nn.BatchNorm1d(input_1, track_running_stats=False)
 
         self.conv2 = nn.Conv1d(input_1, input_2, kernel_size=3)
-        self.bn2   = nn.BatchNorm1d(input_2)
+        self.bn2   = nn.BatchNorm1d(input_2, track_running_stats=False)
 
         self.conv3 = nn.Conv1d(input_2, input_3, kernel_size=3)
-        self.bn3   = nn.BatchNorm1d(input_3)
+        self.bn3   = nn.BatchNorm1d(input_3, track_running_stats=False)
 
         # Get convolutional style output into linear format
         fc_input_dims = self.calculate_conv_output_dims(input_dims)
@@ -77,7 +77,7 @@ class ADANNModel(nn.Module):
         # Classification Head
         self.fc1 = nn.Linear(fc_input_dims, n_output)
         # Subject Head
-        self.fc2 = nn.Linear(input_3, 2)
+        self.fc2 = nn.Linear(fc_input_dims, 2)
 
         self.drop = nn.Dropout(p=0.2)
         self.activation = nn.ReLU()
@@ -213,13 +213,17 @@ def train(model, domain_train_loader, antagonistic_train_loader, subjects):
         
         # Compute loss for both class prediction and subject prediction of source domain
         domain_loss_class   = model.class_loss_fn(predicted_domain_class, domain_class)
-        domain_loss_subject = 0.5 * model.domain_loss_fn(predicted_domain_subject, domain_subject)
+        domain_loss_subject = 0.05 * model.domain_loss_fn(predicted_domain_subject, domain_subject)
 
+        model.optimizer.zero_grad()
+        
         # We can compute the backwards update for the classification loss now,
         # Retain graph is needed here, as domain_loss_subject is not used yet so we can't clear buffers.
-        model.optimizer.zero_grad()
         domain_loss_class.backward(retain_graph=True)
+        domain_loss_subject.backward()
         model.optimizer.step()
+
+        
 
         # Now we save the BN change from the update
         model.update_BN_dict(subjects[0])
@@ -237,23 +241,23 @@ def train(model, domain_train_loader, antagonistic_train_loader, subjects):
         # Feed the antagonistic data into the model to get subject predictions
         _, predicted_antagonistic_subject = model(antagonistic_data)
         # Get domain loss
-        antagonistic_loss_subject = 0.5 * model.domain_loss_fn(predicted_antagonistic_subject, antagonistic_subject)
+        antagonistic_loss_subject = 0.05 * model.domain_loss_fn(predicted_antagonistic_subject, antagonistic_subject)
 
-        loss_domain = 0.1 * (domain_loss_subject + antagonistic_loss_subject)
-        loss_domain.backward()
+
+        antagonistic_loss_subject.backward()
         model.optimizer.step()
 
-        loss_domain_class += domain_loss_class
-        loss_domain_subject += domain_loss_subject
-        loss_antagonistic_subject += antagonistic_loss_subject
-        domain_class_accuracy   += ((torch.argmax(predicted_domain_class,dim=1)==domain_class).sum())/predicted_domain_class.shape[0]
-        domain_subject_accuracy += ((torch.argmax(predicted_domain_subject,dim=1)==domain_subject).sum())/predicted_domain_subject.shape[0]
-        antagonistic_subject_accuracy += ((torch.argmax(predicted_antagonistic_subject,dim=1)==antagonistic_subject).sum())/predicted_antagonistic_subject.shape[0]
+        loss_domain_class += [domain_loss_class.item()]
+        loss_domain_subject += [domain_loss_subject.item()]
+        loss_antagonistic_subject += [antagonistic_loss_subject.item()]
+        domain_class_accuracy   += [( ((torch.argmax(predicted_domain_class,dim=1)==domain_class).sum())/predicted_domain_class.shape[0] ).item()]
+        domain_subject_accuracy += [( ((torch.argmax(predicted_domain_subject,dim=1)==domain_subject).sum())/predicted_domain_subject.shape[0] ).item()]
+        antagonistic_subject_accuracy += [( ((torch.argmax(predicted_antagonistic_subject,dim=1)==antagonistic_subject).sum())/predicted_antagonistic_subject.shape[0] ).item()]
         
 
     # Return the average training loss on this epoch
-    return np.array(loss_domain_class).mean(), np.array(loss_domain_class).mean(), np.array(domain_class_accuracy).mean(), \
-        np.array(domain_subject_accuracy).mean(), np.array(antagonistic_subject_accuracy).mean() 
+    return np.array(loss_domain_class).mean(), np.array(loss_domain_subject).mean(), np.array(loss_antagonistic_subject).mean(), \
+        np.array(domain_class_accuracy).mean(), np.array(domain_subject_accuracy).mean(), np.array(antagonistic_subject_accuracy).mean() 
 
 # TODO: change from vanilla DL validate to ADANN validate
 def validate(model, domain_valid_loader, antagonistic_valid_loader, device):
@@ -345,6 +349,14 @@ if __name__ == "__main__":
     antagonistic_training_subject_loss = np.zeros((num_epochs))
     antagonistic_validation_class_loss = np.zeros((num_epochs))
     antagonistic_validation_subject_loss = np.zeros((num_epochs))
+
+    domain_training_class_accuracy = np.zeros((num_epochs))
+    domain_training_subject_accuracy = np.zeros((num_epochs))
+    domain_validation_class_accuracy = np.zeros((num_epochs))
+    domain_validation_subject_accuracy = np.zeros((num_epochs))
+    antagonistic_training_subject_accuracy = np.zeros((num_epochs))
+    antagonistic_validation_subject_accuracy = np.zeros((num_epochs))
+    
     # The pairs of subjects selected during training is random. Let's keep track of these in a list
     training_subjects_selected = []
     
@@ -399,8 +411,8 @@ if __name__ == "__main__":
         antagonistic_data_valid   = EMGData(antagonistic_subject, chosen_rep_labels=val_rep)
         antagonistic_valid_loader = build_data_loader(batch_size, data=antagonistic_data_valid)
 
-        domain_training_class_loss[epoch], domain_training_subject_loss[epoch], \
-            antagonistic_training_class_loss[epoch], antagonistic_training_subject_loss[epoch] = train(model, domain_train_loader, antagonistic_train_loader, epoch_subjects)
+        domain_training_class_loss[epoch], domain_training_subject_loss[epoch], antagonistic_training_subject_loss[epoch], \
+            domain_training_class_accuracy[epoch], domain_training_subject_accuracy[epoch], antagonistic_training_subject_accuracy[epoch] = train(model, domain_train_loader, antagonistic_train_loader, epoch_subjects)
         domain_validation_class_loss[epoch], domain_validation_subject_loss[epoch], \
             antagonistic_validation_class_loss[epoch], antagonistic_validation_subject_loss[epoch] = validate(model, domain_valid_loader, antagonistic_valid_loader)
         
