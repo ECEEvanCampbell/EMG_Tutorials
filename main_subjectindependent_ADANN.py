@@ -260,49 +260,95 @@ def train(model, source_train_loader, adversarial_train_loader, subjects):
         np.array(source_class_accuracy).mean(), np.array(source_subject_accuracy).mean(), np.array(adversarial_subject_accuracy).mean() 
 
 # TODO: change from vanilla DL validate to ADANN validate
-def validate(model, source_valid_loader, adversarial_valid_loader, device):
+def validate(model, source_valid_loader, adversarial_valid_loader, subjects):
     # Evaluate the model
     # model.eval - disable gradient tracking, batch normalization, dropout
     model.eval()
-    # Store losses of this epoch in a list (element = loss on batch)
-    losses = []
+    # Store losses and accuracies of interest of this epoch in a list (element = loss on batch)
+    loss_source_class = []
+    loss_source_subject = []
+    loss_adversarial_subject = []
+    source_class_accuracy   = []
+    source_subject_accuracy = []
+    adversarial_subject_accuracy = []
+    with torch.no_grad():
+        # We are now using 2 dataloaders, so we need to advance one in tandem of the other
+        adversarial_iterable = iter(adversarial_valid_loader)
+        for batch_idx, (source_data, source_class) in enumerate(source_valid_loader):
 
-    for batch_idx, (data, label) in enumerate(validation_loader):
-        # Send data, labels to GPU if GPU is available
-        data = data.to(device)
-        label = label.to(device)
-        # Passing data to model calls the forward method.
-        output = model(data)
-        # Output: (batch_size, 1, n_class)
-        # Use negative log likelihood loss for validation
-        loss = F.nll_loss(output.squeeze(), label)
-        # Store the loss of this batch
-        losses.append(loss.item())
+            model.switch_BN_dict(subjects[0])
+            # First, deal with the batch of source training data 
+            # Send data, labels to GPU if GPU is available
+            source_data = source_data.to(model.device)
+            source_class = source_class.to(model.device)
+            source_subject = torch.zeros((source_data.shape[0]), dtype=torch.long).to(model.device)
 
-    # Return the average validation loss on this epoch
-    return sum(losses)/len(losses)
+            # Passing data to model calls the forward method.
+            # Forward returns class logits and subject logits
+            predicted_source_class, predicted_source_subject = model(source_data)
+            
+            # Compute loss for both class prediction and subject prediction of source
+            source_loss_class   = model.class_loss_fn(predicted_source_class, source_class)
+            source_loss_subject = 0.05 * model.domain_loss_fn(predicted_source_subject, source_subject)
+
+            # Now we move onto the adversarial subject
+            # adversarial subject -- keep in mind, we only care about the domain loss for the adversarial subject.
+            # We check accuracy here purely for curiosity, adversarial class labels are not used for weight/BN update
+            model.switch_BN_dict(subjects[1])
+
+            # This should be similar, just set up the required data
+            adversarial_data, _ = next(adversarial_iterable)
+            adversarial_data = adversarial_data.to(model.device)
+            # The subject labels here are ones to provide a different label than the source subject
+            adversarial_subject = torch.ones((adversarial_data.shape[0]), dtype=torch.long).to(model.device)
+            # Feed the adversarial data into the model to get subject predictions
+            _, predicted_adversarial_subject = model(adversarial_data)
+            # Get domain loss
+            adversarial_loss_subject = 0.05 * model.domain_loss_fn(predicted_adversarial_subject, adversarial_subject)
+
+            loss_source_class += [source_loss_class.item()]
+            loss_source_subject += [source_loss_subject.item()]
+            loss_adversarial_subject += [adversarial_loss_subject.item()]
+            source_class_accuracy   += [( ((torch.argmax(predicted_source_class,dim=1)==source_class).sum())/predicted_source_class.shape[0] ).item()]
+            source_subject_accuracy += [( ((torch.argmax(predicted_source_subject,dim=1)==source_subject).sum())/predicted_source_subject.shape[0] ).item()]
+            adversarial_subject_accuracy += [( ((torch.argmax(predicted_adversarial_subject,dim=1)==adversarial_subject).sum())/predicted_adversarial_subject.shape[0] ).item()]
+            
+
+    # Return the average training loss on this epoch
+    return np.array(loss_source_class).mean(), np.array(loss_source_subject).mean(), np.array(loss_adversarial_subject).mean(), \
+        np.array(source_class_accuracy).mean(), np.array(source_subject_accuracy).mean(), np.array(adversarial_subject_accuracy).mean() 
 
 
 
-def test(model, test_loader, device):
+def test(model, test_loader, subject):
     # Evaluate the model
     # model.eval - disable gradient tracking, batch normalization, dropout
     model.eval()
-    # Keep track of correct samples
-    correct = 0
+    # Store losses and accuracies of interest of this epoch in a list (element = loss on batch)
+    loss_source_class = []
+    source_class_accuracy   = []
 
-    for batch_idx, (data, label) in enumerate(test_loader):
-        # Send data, labels to GPU if GPU is available
-        data = data.to(device)
-        label = label.to(device)
-        # Passing data to model calls the forward method.
-        output = model(data)
-        predictions = output.argmax(dim=-1)
-        # Add up correct samples from batch
-        for i, prediction in enumerate(predictions):
-            correct += int(prediction == label[i])
-    # Return average accuracy 
-    return float(correct/ len(test_loader.dataset))
+    with torch.no_grad():
+        for batch_idx, (source_data, source_class) in enumerate(source_valid_loader):
+
+            model.switch_BN_dict(subject)
+            # First, deal with the batch of source training data 
+            # Send data, labels to GPU if GPU is available
+            source_data = source_data.to(model.device)
+            source_class = source_class.to(model.device)
+
+            # Passing data to model calls the forward method.
+            # Forward returns class logits and subject logits, we only care about class here
+            predicted_source_class, _ = model(source_data)
+            
+            # Compute loss for both class prediction and subject prediction of source
+            source_loss_class   = model.class_loss_fn(predicted_source_class, source_class)
+
+            loss_source_class += [source_loss_class.item()]
+            source_class_accuracy   += [( ((torch.argmax(predicted_source_class,dim=1)==source_class).sum())/predicted_source_class.shape[0] ).item()]
+
+    # Return the average training loss on this epoch
+    return np.array(loss_source_class).mean(), np.array(source_class_accuracy).mean()
 
 
 if __name__ == "__main__":
@@ -333,7 +379,7 @@ if __name__ == "__main__":
     lr = 0.005
     lambda_val = 0.1
     weight_decay = 0.001
-    num_epochs = 1000
+    num_epochs = 5
     PLOT_LOSS = False
 
     # Start within subject cross-validation scheme
@@ -354,6 +400,9 @@ if __name__ == "__main__":
     source_validation_subject_accuracy = np.zeros((num_epochs))
     adversarial_training_subject_accuracy = np.zeros((num_epochs))
     adversarial_validation_subject_accuracy = np.zeros((num_epochs))
+
+    testing_loss = np.zeros((num_subjects))
+    testing_accuracy = np.zeros((num_subjects))
     
     # The pairs of subjects selected during training is random. Let's keep track of these in a list
     training_subjects_selected = []
@@ -384,14 +433,11 @@ if __name__ == "__main__":
 
     model = ADANNModel(n_output=num_motions, n_channels=num_channels, num_subjects=num_subjects, input_dims=[num_channels, winsize], lr = lr)
 
-    # training setup
-    
-    
-    
     # Train process:
     for epoch in range(num_epochs):
         # First, select two subjects
         epoch_subjects = np.random.choice(np.array(range(num_subjects)), 2, replace=False)
+        training_subjects_selected.append(epoch_subjects)
         # Get the data for subject 0, and subject 1
         # These numbers later indicate what label the domain linear layer tries to predict
         source_subject = epoch_subjects[0]
@@ -401,18 +447,21 @@ if __name__ == "__main__":
         # These datasets only contain the training data ~ 50% of this dataset
         source_data_train         = EMGData(source_subject, chosen_rep_labels=train_rep)
         source_train_loader       = build_data_loader(batch_size,  data=source_data_train)
-        adversarial_data_train   = EMGData(adversarial_subject, chosen_rep_labels=train_rep)
-        adversarial_train_loader = build_data_loader(batch_size, data=adversarial_data_train)
+        adversarial_data_train    = EMGData(adversarial_subject, chosen_rep_labels=train_rep)
+        adversarial_train_loader  = build_data_loader(batch_size, data=adversarial_data_train)
         # These datasets only contain the validation data ~ 25% of this dataset
         source_data_valid         = EMGData(source_subject, chosen_rep_labels=val_rep)
         source_valid_loader       = build_data_loader(batch_size, data=source_data_valid)
-        adversarial_data_valid   = EMGData(adversarial_subject, chosen_rep_labels=val_rep)
-        adversarial_valid_loader = build_data_loader(batch_size, data=adversarial_data_valid)
+        adversarial_data_valid    = EMGData(adversarial_subject, chosen_rep_labels=val_rep)
+        adversarial_valid_loader  = build_data_loader(batch_size, data=adversarial_data_valid)
 
         source_training_class_loss[epoch], source_training_subject_loss[epoch], adversarial_training_subject_loss[epoch], \
             source_training_class_accuracy[epoch], source_training_subject_accuracy[epoch], adversarial_training_subject_accuracy[epoch] = train(model, source_train_loader, adversarial_train_loader, epoch_subjects)
-        source_validation_class_loss[epoch], source_validation_subject_loss[epoch], \
-            adversarial_validation_class_loss[epoch], adversarial_validation_subject_loss[epoch] = validate(model, source_valid_loader, adversarial_valid_loader)
+        
+        
+        source_validation_class_loss[epoch], source_validation_subject_loss[epoch], adversarial_validation_subject_loss[epoch], \
+            source_validation_class_accuracy[epoch], source_validation_subject_accuracy[epoch], adversarial_validation_subject_accuracy[epoch] = validate(model, source_valid_loader, adversarial_valid_loader, epoch_subjects)
+        
         
         validation_loss = (1-model.lambda_value) * (source_validation_class_loss[epoch])+ \
             (model.lambda_value) * (source_validation_subject_loss[epoch] + adversarial_validation_subject_loss[epoch])/2
@@ -421,8 +470,12 @@ if __name__ == "__main__":
         # Add a nice print statement
 
     # Test process:
+    for s in range(num_subjects):
+        # Test against the held-out 25% of the dataset (final rep of each subject)
+        data_test         = EMGData(s, chosen_rep_labels=test_rep)
+        test_loader       = build_data_loader(batch_size,  data=data_test)
+        testing_loss[s], testing_accuracy[s] = test(model, test_loader, s)
 
 
 
-
-    np.save("Results/subjectindependent_ADANN.npy", independent_subject_results)
+    np.save("Results/subjectindependent_ADANN.npy", (testing_loss, testing_accuracy))
