@@ -184,43 +184,43 @@ def pad_sequence(batch):
 # TODO: change from vanilla DL train to ADANN train
 # Class loss & subject loss
 # change BN parameters between subjects
-def train(model, domain_train_loader, antagonistic_train_loader, subjects):
+def train(model, source_train_loader, adversarial_train_loader, subjects):
     # Train the model
     # model.train - enable gradient tracking, enable batch normalization, dropout
     model.train()
     # Store losses and accuracies of interest of this epoch in a list (element = loss on batch)
-    loss_domain_class = []
-    loss_domain_subject = []
-    loss_antagonistic_subject = []
-    domain_class_accuracy   = []
-    domain_subject_accuracy = []
-    antagonistic_subject_accuracy = []
+    loss_source_class = []
+    loss_source_subject = []
+    loss_adversarial_subject = []
+    source_class_accuracy   = []
+    source_subject_accuracy = []
+    adversarial_subject_accuracy = []
 
     # We are now using 2 dataloaders, so we need to advance one in tandem of the other
-    antagonistic_iterable = iter(antagonistic_train_loader)
-    for batch_idx, (domain_data, domain_class) in enumerate(domain_train_loader):
+    adversarial_iterable = iter(adversarial_train_loader)
+    for batch_idx, (source_data, source_class) in enumerate(source_train_loader):
 
         model.switch_BN_dict(subjects[0])
-        # First, deal with the batch of domain training data 
+        # First, deal with the batch of source training data 
         # Send data, labels to GPU if GPU is available
-        domain_data = domain_data.to(model.device)
-        domain_class = domain_class.to(model.device)
-        domain_subject = torch.zeros((domain_data.shape[0]), dtype=torch.long).to(model.device)
+        source_data = source_data.to(model.device)
+        source_class = source_class.to(model.device)
+        source_subject = torch.zeros((source_data.shape[0]), dtype=torch.long).to(model.device)
 
         # Passing data to model calls the forward method.
-        # Forward returns class logits and domain logits
-        predicted_domain_class, predicted_domain_subject = model(domain_data)
+        # Forward returns class logits and subject logits
+        predicted_source_class, predicted_source_subject = model(source_data)
         
-        # Compute loss for both class prediction and subject prediction of source domain
-        domain_loss_class   = model.class_loss_fn(predicted_domain_class, domain_class)
-        domain_loss_subject = 0.05 * model.domain_loss_fn(predicted_domain_subject, domain_subject)
+        # Compute loss for both class prediction and subject prediction of source
+        source_loss_class   = model.class_loss_fn(predicted_source_class, source_class)
+        source_loss_subject = 0.05 * model.domain_loss_fn(predicted_source_subject, source_subject)
 
         model.optimizer.zero_grad()
         
         # We can compute the backwards update for the classification loss now,
-        # Retain graph is needed here, as domain_loss_subject is not used yet so we can't clear buffers.
-        domain_loss_class.backward(retain_graph=True)
-        domain_loss_subject.backward()
+        # Retain graph is needed here, as source_loss_subject is not used yet so we can't clear buffers.
+        source_loss_class.backward(retain_graph=True)
+        source_loss_subject.backward()
         model.optimizer.step()
 
         
@@ -228,39 +228,39 @@ def train(model, domain_train_loader, antagonistic_train_loader, subjects):
         # Now we save the BN change from the update
         model.update_BN_dict(subjects[0])
 
-        # Now we move onto the antagonistic subject
-        # Antagonistic subject -- keep in mind, we only care about the domain loss for the adversarial subject.
-        # We check accuracy here purely for curiosity, antagonistic class labels are not used for weight/BN update
+        # Now we move onto the adversarial subject
+        # adversarial subject -- keep in mind, we only care about the domain loss for the adversarial subject.
+        # We check accuracy here purely for curiosity, adversarial class labels are not used for weight/BN update
         model.switch_BN_dict(subjects[1])
 
         # This should be similar, just set up the required data
-        antagonistic_data, _ = next(antagonistic_iterable)
-        antagonistic_data = antagonistic_data.to(model.device)
-        # The subject labels here are ones to provide a different label than the domain subject
-        antagonistic_subject = torch.ones((antagonistic_data.shape[0]), dtype=torch.long).to(model.device)
-        # Feed the antagonistic data into the model to get subject predictions
-        _, predicted_antagonistic_subject = model(antagonistic_data)
+        adversarial_data, _ = next(adversarial_iterable)
+        adversarial_data = adversarial_data.to(model.device)
+        # The subject labels here are ones to provide a different label than the source subject
+        adversarial_subject = torch.ones((adversarial_data.shape[0]), dtype=torch.long).to(model.device)
+        # Feed the adversarial data into the model to get subject predictions
+        _, predicted_adversarial_subject = model(adversarial_data)
         # Get domain loss
-        antagonistic_loss_subject = 0.05 * model.domain_loss_fn(predicted_antagonistic_subject, antagonistic_subject)
+        adversarial_loss_subject = 0.05 * model.domain_loss_fn(predicted_adversarial_subject, adversarial_subject)
 
 
-        antagonistic_loss_subject.backward()
+        adversarial_loss_subject.backward()
         model.optimizer.step()
 
-        loss_domain_class += [domain_loss_class.item()]
-        loss_domain_subject += [domain_loss_subject.item()]
-        loss_antagonistic_subject += [antagonistic_loss_subject.item()]
-        domain_class_accuracy   += [( ((torch.argmax(predicted_domain_class,dim=1)==domain_class).sum())/predicted_domain_class.shape[0] ).item()]
-        domain_subject_accuracy += [( ((torch.argmax(predicted_domain_subject,dim=1)==domain_subject).sum())/predicted_domain_subject.shape[0] ).item()]
-        antagonistic_subject_accuracy += [( ((torch.argmax(predicted_antagonistic_subject,dim=1)==antagonistic_subject).sum())/predicted_antagonistic_subject.shape[0] ).item()]
+        loss_source_class += [source_loss_class.item()]
+        loss_source_subject += [source_loss_subject.item()]
+        loss_adversarial_subject += [adversarial_loss_subject.item()]
+        source_class_accuracy   += [( ((torch.argmax(predicted_source_class,dim=1)==source_class).sum())/predicted_source_class.shape[0] ).item()]
+        source_subject_accuracy += [( ((torch.argmax(predicted_source_subject,dim=1)==source_subject).sum())/predicted_source_subject.shape[0] ).item()]
+        adversarial_subject_accuracy += [( ((torch.argmax(predicted_adversarial_subject,dim=1)==adversarial_subject).sum())/predicted_adversarial_subject.shape[0] ).item()]
         
 
     # Return the average training loss on this epoch
-    return np.array(loss_domain_class).mean(), np.array(loss_domain_subject).mean(), np.array(loss_antagonistic_subject).mean(), \
-        np.array(domain_class_accuracy).mean(), np.array(domain_subject_accuracy).mean(), np.array(antagonistic_subject_accuracy).mean() 
+    return np.array(loss_source_class).mean(), np.array(loss_source_subject).mean(), np.array(loss_adversarial_subject).mean(), \
+        np.array(source_class_accuracy).mean(), np.array(source_subject_accuracy).mean(), np.array(adversarial_subject_accuracy).mean() 
 
 # TODO: change from vanilla DL validate to ADANN validate
-def validate(model, domain_valid_loader, antagonistic_valid_loader, device):
+def validate(model, source_valid_loader, adversarial_valid_loader, device):
     # Evaluate the model
     # model.eval - disable gradient tracking, batch normalization, dropout
     model.eval()
@@ -338,24 +338,22 @@ if __name__ == "__main__":
 
     # Start within subject cross-validation scheme
     # Unlike a standard CNN, we have a loss from the class prediction and a loss from the subject prediction
-    # Domain = source, previous terminology
-    # Antagonistic = adversarial, previous terminology
     independent_subject_results = np.zeros((num_subjects))
-    domain_training_class_loss = np.zeros((num_epochs))
-    domain_training_subject_loss = np.zeros((num_epochs))
-    domain_validation_class_loss = np.zeros((num_epochs))
-    domain_validation_subject_loss = np.zeros((num_epochs))
-    antagonistic_training_class_loss = np.zeros((num_epochs))
-    antagonistic_training_subject_loss = np.zeros((num_epochs))
-    antagonistic_validation_class_loss = np.zeros((num_epochs))
-    antagonistic_validation_subject_loss = np.zeros((num_epochs))
+    source_training_class_loss = np.zeros((num_epochs))
+    source_training_subject_loss = np.zeros((num_epochs))
+    source_validation_class_loss = np.zeros((num_epochs))
+    source_validation_subject_loss = np.zeros((num_epochs))
+    adversarial_training_class_loss = np.zeros((num_epochs))
+    adversarial_training_subject_loss = np.zeros((num_epochs))
+    adversarial_validation_class_loss = np.zeros((num_epochs))
+    adversarial_validation_subject_loss = np.zeros((num_epochs))
 
-    domain_training_class_accuracy = np.zeros((num_epochs))
-    domain_training_subject_accuracy = np.zeros((num_epochs))
-    domain_validation_class_accuracy = np.zeros((num_epochs))
-    domain_validation_subject_accuracy = np.zeros((num_epochs))
-    antagonistic_training_subject_accuracy = np.zeros((num_epochs))
-    antagonistic_validation_subject_accuracy = np.zeros((num_epochs))
+    source_training_class_accuracy = np.zeros((num_epochs))
+    source_training_subject_accuracy = np.zeros((num_epochs))
+    source_validation_class_accuracy = np.zeros((num_epochs))
+    source_validation_subject_accuracy = np.zeros((num_epochs))
+    adversarial_training_subject_accuracy = np.zeros((num_epochs))
+    adversarial_validation_subject_accuracy = np.zeros((num_epochs))
     
     # The pairs of subjects selected during training is random. Let's keep track of these in a list
     training_subjects_selected = []
@@ -396,28 +394,28 @@ if __name__ == "__main__":
         epoch_subjects = np.random.choice(np.array(range(num_subjects)), 2, replace=False)
         # Get the data for subject 0, and subject 1
         # These numbers later indicate what label the domain linear layer tries to predict
-        domain_subject = epoch_subjects[0]
-        antagonistic_subject = epoch_subjects[1]
+        source_subject = epoch_subjects[0]
+        adversarial_subject = epoch_subjects[1]
         # This loading procedure adds a LARGE amount of time to the training procedure (repeated each epoch)
         # __ future work could be to find a method to improve this area while not requiring incredible amounts of memory.
         # These datasets only contain the training data ~ 50% of this dataset
-        domain_data_train         = EMGData(domain_subject, chosen_rep_labels=train_rep)
-        domain_train_loader       = build_data_loader(batch_size,  data=domain_data_train)
-        antagonistic_data_train   = EMGData(antagonistic_subject, chosen_rep_labels=train_rep)
-        antagonistic_train_loader = build_data_loader(batch_size, data=antagonistic_data_train)
+        source_data_train         = EMGData(source_subject, chosen_rep_labels=train_rep)
+        source_train_loader       = build_data_loader(batch_size,  data=source_data_train)
+        adversarial_data_train   = EMGData(adversarial_subject, chosen_rep_labels=train_rep)
+        adversarial_train_loader = build_data_loader(batch_size, data=adversarial_data_train)
         # These datasets only contain the validation data ~ 25% of this dataset
-        domain_data_valid         = EMGData(domain_subject, chosen_rep_labels=val_rep)
-        domain_valid_loader       = build_data_loader(batch_size, data=domain_data_valid)
-        antagonistic_data_valid   = EMGData(antagonistic_subject, chosen_rep_labels=val_rep)
-        antagonistic_valid_loader = build_data_loader(batch_size, data=antagonistic_data_valid)
+        source_data_valid         = EMGData(source_subject, chosen_rep_labels=val_rep)
+        source_valid_loader       = build_data_loader(batch_size, data=source_data_valid)
+        adversarial_data_valid   = EMGData(adversarial_subject, chosen_rep_labels=val_rep)
+        adversarial_valid_loader = build_data_loader(batch_size, data=adversarial_data_valid)
 
-        domain_training_class_loss[epoch], domain_training_subject_loss[epoch], antagonistic_training_subject_loss[epoch], \
-            domain_training_class_accuracy[epoch], domain_training_subject_accuracy[epoch], antagonistic_training_subject_accuracy[epoch] = train(model, domain_train_loader, antagonistic_train_loader, epoch_subjects)
-        domain_validation_class_loss[epoch], domain_validation_subject_loss[epoch], \
-            antagonistic_validation_class_loss[epoch], antagonistic_validation_subject_loss[epoch] = validate(model, domain_valid_loader, antagonistic_valid_loader)
+        source_training_class_loss[epoch], source_training_subject_loss[epoch], adversarial_training_subject_loss[epoch], \
+            source_training_class_accuracy[epoch], source_training_subject_accuracy[epoch], adversarial_training_subject_accuracy[epoch] = train(model, source_train_loader, adversarial_train_loader, epoch_subjects)
+        source_validation_class_loss[epoch], source_validation_subject_loss[epoch], \
+            adversarial_validation_class_loss[epoch], adversarial_validation_subject_loss[epoch] = validate(model, source_valid_loader, adversarial_valid_loader)
         
-        validation_loss = (1-model.lambda_value) * (domain_validation_class_loss + antagonistic_validation_class_loss)/2 + \
-            (model.lambda_value) * (domain_validation_subject_loss + antagonistic_validation_subject_loss)/2
+        validation_loss = (1-model.lambda_value) * (source_validation_class_loss[epoch])+ \
+            (model.lambda_value) * (source_validation_subject_loss[epoch] + adversarial_validation_subject_loss[epoch])/2
 
         model.scheduler.step(validation_loss)
         # Add a nice print statement
